@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ElevenLabs Conversational Agent</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1, h2 { color: #333; }
+    button { padding: 10px 15px; margin: 5px; }
+    #uploadStatus, #agentInfo { margin-top: 10px; }
+    /* Optional: set a min-height for the widget container */
+    #convaiWidgetContainer {
+      min-height: 300px;
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>ElevenLabs Conversational Agent</h1>
+  
+  <!-- Voice Recording Section -->
+  <div>
+    <h2>Step 1: Record your Voice Sample</h2>
+    <button id="recordVoiceBtn">Record Voice Sample (10s)</button>
+    <span id="voiceStatus">Not recorded</span>
+  </div>
+  
+  <!-- Role Description Recording Section -->
+  <div>
+    <h2>Step 2: Record your System Prompt (Role Description)</h2>
+    <button id="recordRoleBtn">Record Role Description (10s)</button>
+    <span id="roleStatus">Not recorded</span>
+  </div>
+  
+  <!-- Agent Creation Section -->
+  <div>
+    <h2>Step 3: Create Agent</h2>
+    <button id="createAgentBtn">Create Agent</button>
+    <div id="agentInfo"></div>
+  </div>
+  
+  <!-- Knowledge Base Upload Section -->
+  <div>
+    <h2>Step 4: Upload PDF Knowledge Base</h2>
+    <input type="file" id="pdfInput" accept="application/pdf" multiple>
+    <button id="uploadPdfBtn">Upload PDF(s)</button>
+    <div id="uploadStatus"></div>
+  </div>
+  
+  <!-- Conversation Widget Section -->
+  <div>
+    <h2>Step 5: Start Conversation</h2>
+    <!-- Widget container: we will dynamically insert the widget here -->
+    <div id="convaiWidgetContainer"></div>
+  </div>
+
+  <!-- Include the ElevenLabs widget script -->
+  <script src="https://elevenlabs.io/convai-widget/index.js" async></script>
+  <script>
+    // Global variables to hold recorded audio blobs and agent id
+    let voiceBlob = null;
+    let roleBlob = null;
+    let agentId = null;
+
+    // Utility function to record audio using the MediaRecorder API
+    async function recordAudio(durationMs) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const mediaRecorder = new MediaRecorder(stream);
+          const audioChunks = [];
+          mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+          };
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            resolve(audioBlob);
+          };
+          mediaRecorder.start();
+          setTimeout(() => {
+            mediaRecorder.stop();
+          }, durationMs);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    // Record voice sample when button is clicked
+    document.getElementById('recordVoiceBtn').addEventListener('click', async () => {
+      document.getElementById('voiceStatus').innerText = 'Recording...';
+      try {
+        voiceBlob = await recordAudio(10000); // record for 10 seconds
+        document.getElementById('voiceStatus').innerText = 'Voice sample recorded';
+      } catch (err) {
+        document.getElementById('voiceStatus').innerText = 'Error: ' + err;
+      }
+    });
+
+    // Record role description when button is clicked
+    document.getElementById('recordRoleBtn').addEventListener('click', async () => {
+      document.getElementById('roleStatus').innerText = 'Recording...';
+      try {
+        roleBlob = await recordAudio(10000); // record for 10 seconds
+        document.getElementById('roleStatus').innerText = 'Role description recorded';
+      } catch (err) {
+        document.getElementById('roleStatus').innerText = 'Error: ' + err;
+      }
+    });
+
+    // Create agent by sending recorded files to the backend
+    document.getElementById('createAgentBtn').addEventListener('click', async () => {
+      if (!voiceBlob || !roleBlob) {
+        alert("Please record both voice sample and role description.");
+        return;
+      }
+      const formData = new FormData();
+      formData.append('voice_sample', voiceBlob, 'voice_sample.wav');
+      formData.append('role_audio', roleBlob, 'role_audio.wav');
+
+      const res = await fetch('/api/clone-voice', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.agent_id) {
+        agentId = data.agent_id;
+        document.getElementById('agentInfo').innerText = 'Agent created with ID: ' + agentId;
+        // Now that we have an agent id, initialize the conversation widget
+        initConvaiWidget();
+      } else {
+        document.getElementById('agentInfo').innerText = 'Error: ' + JSON.stringify(data);
+      }
+    });
+
+    // Upload selected PDF files to the agent’s knowledge base
+    document.getElementById('uploadPdfBtn').addEventListener('click', async () => {
+      if (!agentId) {
+        alert("Create an agent first.");
+        return;
+      }
+      const pdfInput = document.getElementById('pdfInput');
+      if (pdfInput.files.length === 0) {
+        alert("Select at least one PDF file.");
+        return;
+      }
+      for (let i = 0; i < pdfInput.files.length; i++) {
+        const formData = new FormData();
+        formData.append('agent_id', agentId);
+        formData.append('pdf_file', pdfInput.files[i], pdfInput.files[i].name);
+        const res = await fetch('/api/upload-doc', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.message) {
+          document.getElementById('uploadStatus').innerText += pdfInput.files[i].name + ': ' + data.message + '\n';
+        } else {
+          document.getElementById('uploadStatus').innerText += pdfInput.files[i].name + ': Error - ' + JSON.stringify(data) + '\n';
+        }
+      }
+    });
+
+    // Function to initialize (or reinitialize) the conversation widget.
+    function initConvaiWidget() {
+      // Clear any existing widget from the container.
+      const container = document.getElementById('convaiWidgetContainer');
+      container.innerHTML = "";
+      // Create a new <elevenlabs-convai> element with the agent-id attribute.
+      const widget = document.createElement('elevenlabs-convai');
+      widget.setAttribute('agent-id', agentId);
+      container.appendChild(widget);
+    }
+  </script>
+</body>
+</html>
