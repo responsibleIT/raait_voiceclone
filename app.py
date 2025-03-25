@@ -7,7 +7,7 @@ import speech_recognition as sr
 app = Flask(__name__)
 
 # Replace with your actual ElevenLabs API key
-ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+ELEVENLABS_API_KEY = 'sk_c03471a47b86a157c841708a0faa92f356c7668ae94e50b5'
 
 # Assumed ElevenLabs API endpoints (adjust if necessary)
 VOICE_CLONE_URL = "https://api.elevenlabs.io/v1/voices/add"
@@ -83,7 +83,7 @@ def clone_voice():
         "name": "RAAIT Cloned Agent",
         "conversation_config": {
             "tts": {
-                "model_id": "eleven_multilingual_v2",
+                "model_id": "eleven_flash_v2_5",
                 "voice_id": cloned_voice_id
             },
             "agent": {
@@ -100,7 +100,7 @@ def clone_voice():
         },
         "platform_settings": {
             "widget": {
-                "variant": "expandable"
+                "variant": "full"
             }
         }
     }

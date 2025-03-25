@@ -1,15 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="nl">
 <head>
-  <meta charset="utf-8">
-  <title>ElevenLabs Conversational Agent</title>
+  <meta charset="UTF-8">
+  <title>Bot Interface</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1, h2 { color: #333; }
-    button { padding: 10px 15px; margin: 5px; }
-    #uploadStatus, #agentInfo { margin-top: 10px; }
-    /* Optional: set a min-height for the widget container */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #fdfdfd;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    .step-label {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .step-label span {
+      color: #77bfff;
+    }
+
+    .step-label b {
+      color: #1a3b6d;
+    }
+
+    .button {
+      display: inline-block;
+      background-color: #1597ea;
+      color: white;
+      font-size: 20px;
+      padding: 15px 30px;
+      margin: 10px 0 10px 0;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      width: 300px;
+    }
+
+    .button-outline {
+      background-color: white;
+      border: 3px solid #1597ea;
+      color: #1597ea;
+    }
+
+    .start-button {
+      background-color: #e81111;
+      color: white;
+    }
+
+    #audio-player {
+      margin-top: 10px;
+      display: none;
+    }
+
+    #file-name {
+      font-size: 14px;
+      color: #333;
+      margin-top: 10px;
+    }
+
+    /* Container for conversation widget (Step 5) */
     #convaiWidgetContainer {
+      margin-top: 30px;
       min-height: 300px;
       border: 1px solid #ccc;
       padding: 10px;
@@ -17,102 +69,86 @@
   </style>
 </head>
 <body>
-  <h1>ElevenLabs Conversational Agent</h1>
-  
-  <!-- Voice Recording Section -->
-  <div>
-    <h2>Step 1: Record your Voice Sample</h2>
-    <button id="recordVoiceBtn">Record Voice Sample (10s)</button>
-    <span id="voiceStatus">Not recorded</span>
+
+  <!-- STAP 1: Record Voice Sample -->
+  <div class="step">
+    <div class="step-label"><span>STAP 1</span> <b>STEM OPNEMEN</b></div>
+    <button class="button" onclick="recordVoiceSample()">Neem je stem op</button>
+    <div id="voiceStatus" style="margin-top:5px;">Nog niet opgenomen</div>
   </div>
-  
-  <!-- Role Description Recording Section -->
-  <div>
-    <h2>Step 2: Record your System Prompt (Role Description)</h2>
-    <button id="recordRoleBtn">Record Role Description (10s)</button>
-    <span id="roleStatus">Not recorded</span>
+
+  <!-- STAP 2: Record Role -->
+  <div class="step">
+    <div class="step-label"><span>STAP 2</span> <b>WELKOMSTTEKST</b></div>
+    <button class="button" onclick="recordRoleDescription()">Wie ben je</button>
+    <div id="roleStatus" style="margin-top:5px;">Nog niet opgenomen</div>
   </div>
-  
-  <!-- Agent Creation Section -->
-  <div>
-    <h2>Step 3: Create Agent</h2>
-    <button id="createAgentBtn">Create Agent</button>
-    <div id="agentInfo"></div>
+
+  <!-- STAP 3: Create Agent -->
+  <div class="step">
+    <div class="step-label"><span>STAP 3</span> <b>BEWAAR BOT</b></div>
+    <button class="button" onclick="createAgent()">Bewaar</button>
+    <div id="agentInfo" style="margin-top:5px;"></div>
   </div>
-  
-  <!-- Knowledge Base Upload Section -->
-  <div>
-    <h2>Step 4: Upload PDF Knowledge Base</h2>
-    <input type="file" id="pdfInput" accept="application/pdf" multiple>
-    <button id="uploadPdfBtn">Upload PDF(s)</button>
+
+  <!-- STAP 4: Upload PDF Knowledge Base -->
+  <div class="step">
+    <div class="step-label"><span>STAP 4</span> <b>KENNIS TOEVOEGEN</b></div>
+    <input type="file" id="pdfInput" accept="application/pdf" style="display: none;" multiple>
+    <button class="button button-outline" onclick="document.getElementById('pdfInput').click()">Selecteer bestand</button>
+    <div id="file-name"></div>
     <div id="uploadStatus"></div>
   </div>
-  
-  <!-- Conversation Widget Section -->
-  <div>
-    <h2>Step 5: Start Conversation</h2>
-    <!-- Widget container: we will dynamically insert the widget here -->
+
+  <!-- STAP 5: Start Conversation -->
+  <div class="step">
+    <button class="button start-button" onclick="startConversation()">Start gesprek</button>
     <div id="convaiWidgetContainer"></div>
   </div>
 
-  <!-- Include the ElevenLabs widget script -->
+  <!-- ElevenLabs widget script -->
   <script src="https://elevenlabs.io/convai-widget/index.js" async></script>
-  <script>
-    // Global variables to hold recorded audio blobs and agent id
-    let voiceBlob = null;
-    let roleBlob = null;
-    let agentId = null;
 
-    // Utility function to record audio using the MediaRecorder API
-    async function recordAudio(durationMs) {
-      return new Promise(async (resolve, reject) => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const mediaRecorder = new MediaRecorder(stream);
-          const audioChunks = [];
-          mediaRecorder.ondataavailable = event => {
-            audioChunks.push(event.data);
-          };
-          mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            resolve(audioBlob);
-          };
-          mediaRecorder.start();
-          setTimeout(() => {
-            mediaRecorder.stop();
-          }, durationMs);
-        } catch (err) {
-          reject(err);
-        }
-      });
+  <script>
+    // ------------------------------------------------------
+    // GLOBAL VARIABLES
+    // ------------------------------------------------------
+    let voiceBlob = null;     // Holds the 10s voice sample
+    let roleBlob = null;      // Holds the 10s role description
+    let agentId = null;       // Holds the agent ID after creation
+
+    // ------------------------------------------------------
+    // STEP 1: Record Voice Sample
+    // ------------------------------------------------------
+    async function recordVoiceSample() {
+      document.getElementById('voiceStatus').innerText = 'Opnemen...';
+      try {
+        voiceBlob = await recordAudio(30000); // record for 30 seconds
+        document.getElementById('voiceStatus').innerText = 'Stem opgenomen';
+      } catch (err) {
+        document.getElementById('voiceStatus').innerText = 'Fout bij opnemen: ' + err;
+      }
     }
 
-    // Record voice sample when button is clicked
-    document.getElementById('recordVoiceBtn').addEventListener('click', async () => {
-      document.getElementById('voiceStatus').innerText = 'Recording...';
-      try {
-        voiceBlob = await recordAudio(10000); // record for 10 seconds
-        document.getElementById('voiceStatus').innerText = 'Voice sample recorded';
-      } catch (err) {
-        document.getElementById('voiceStatus').innerText = 'Error: ' + err;
-      }
-    });
-
-    // Record role description when button is clicked
-    document.getElementById('recordRoleBtn').addEventListener('click', async () => {
-      document.getElementById('roleStatus').innerText = 'Recording...';
+    // ------------------------------------------------------
+    // STEP 2: Record Role Description
+    // ------------------------------------------------------
+    async function recordRoleDescription() {
+      document.getElementById('roleStatus').innerText = 'Opnemen...';
       try {
         roleBlob = await recordAudio(10000); // record for 10 seconds
-        document.getElementById('roleStatus').innerText = 'Role description recorded';
+        document.getElementById('roleStatus').innerText = 'Welkomsttekst opgenomen';
       } catch (err) {
-        document.getElementById('roleStatus').innerText = 'Error: ' + err;
+        document.getElementById('roleStatus').innerText = 'Fout bij opnemen: ' + err;
       }
-    });
+    }
 
-    // Create agent by sending recorded files to the backend
-    document.getElementById('createAgentBtn').addEventListener('click', async () => {
+    // ------------------------------------------------------
+    // STEP 3: Create Agent (Save Bot)
+    // ------------------------------------------------------
+    async function createAgent() {
       if (!voiceBlob || !roleBlob) {
-        alert("Please record both voice sample and role description.");
+        alert("Neem eerst zowel je stem (Stap 1) als je welkomsttekst (Stap 2) op.");
         return;
       }
       const formData = new FormData();
@@ -126,51 +162,98 @@
       const data = await res.json();
       if (data.agent_id) {
         agentId = data.agent_id;
-        document.getElementById('agentInfo').innerText = 'Agent created with ID: ' + agentId;
-        // Now that we have an agent id, initialize the conversation widget
-        initConvaiWidget();
+        document.getElementById('agentInfo').innerText = 'Bot bewaard! Agent ID: ' + agentId;
       } else {
-        document.getElementById('agentInfo').innerText = 'Error: ' + JSON.stringify(data);
+        document.getElementById('agentInfo').innerText = 'Fout: ' + JSON.stringify(data);
       }
-    });
+    }
 
-    // Upload selected PDF files to the agent’s knowledge base
-    document.getElementById('uploadPdfBtn').addEventListener('click', async () => {
+    // ------------------------------------------------------
+    // STEP 4: PDF Knowledge Base
+    // ------------------------------------------------------
+    document.getElementById('pdfInput').addEventListener('change', async function() {
+      // Show file name(s)
+      const files = this.files;
+      if (!files || files.length === 0) {
+        document.getElementById('file-name').textContent = '';
+        return;
+      }
+      let fileNames = [];
+      for (let i = 0; i < files.length; i++) {
+        fileNames.push(files[i].name);
+      }
+      document.getElementById('file-name').textContent = 'Geselecteerd: ' + fileNames.join(', ');
+
       if (!agentId) {
-        alert("Create an agent first.");
+        alert("Bewaar de bot eerst (Stap 3) voordat je kennis toevoegt.");
         return;
       }
-      const pdfInput = document.getElementById('pdfInput');
-      if (pdfInput.files.length === 0) {
-        alert("Select at least one PDF file.");
-        return;
-      }
-      for (let i = 0; i < pdfInput.files.length; i++) {
+
+      // For each selected PDF, upload it
+      for (let i = 0; i < files.length; i++) {
         const formData = new FormData();
         formData.append('agent_id', agentId);
-        formData.append('pdf_file', pdfInput.files[i], pdfInput.files[i].name);
+        formData.append('pdf_file', files[i], files[i].name);
         const res = await fetch('/api/upload-doc', {
           method: 'POST',
           body: formData
         });
         const data = await res.json();
         if (data.message) {
-          document.getElementById('uploadStatus').innerText += pdfInput.files[i].name + ': ' + data.message + '\n';
+          document.getElementById('uploadStatus').innerText += files[i].name + ': ' + data.message + '\n';
         } else {
-          document.getElementById('uploadStatus').innerText += pdfInput.files[i].name + ': Error - ' + JSON.stringify(data) + '\n';
+          document.getElementById('uploadStatus').innerText += files[i].name + ': Fout - ' + JSON.stringify(data) + '\n';
         }
       }
     });
 
-    // Function to initialize (or reinitialize) the conversation widget.
-    function initConvaiWidget() {
-      // Clear any existing widget from the container.
+    // ------------------------------------------------------
+    // STEP 5: Start Conversation
+    // ------------------------------------------------------
+    function startConversation() {
+      if (!agentId) {
+        alert("Bewaar de bot eerst (Stap 3) om een gesprek te starten.");
+        return;
+      }
+      // Clear any existing widget
       const container = document.getElementById('convaiWidgetContainer');
       container.innerHTML = "";
-      // Create a new <elevenlabs-convai> element with the agent-id attribute.
+
+      // Create the <elevenlabs-convai> element with the agent ID
       const widget = document.createElement('elevenlabs-convai');
       widget.setAttribute('agent-id', agentId);
       container.appendChild(widget);
+
+      alert("Gesprek gestart! 🎤");
+      console.log("Start gesprek met agent:", agentId);
+    }
+
+    // ------------------------------------------------------
+    // HELPER: Record Audio for X ms
+    // ------------------------------------------------------
+    async function recordAudio(durationMs) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const mediaRecorder = new MediaRecorder(stream);
+          const audioChunks = [];
+          mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+          };
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            // Log the size of the audio blob
+           console.log("Audio blob size:", audioBlob.size);
+            resolve(audioBlob);
+          };
+          mediaRecorder.start();
+          setTimeout(() => {
+            mediaRecorder.stop();
+          }, durationMs);
+        } catch (err) {
+          reject(err);
+        }
+      });
     }
   </script>
 </body>
