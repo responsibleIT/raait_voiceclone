@@ -7,7 +7,7 @@ import speech_recognition as sr
 app = Flask(__name__)
 
 # Replace with your actual ElevenLabs API key
-ELEVENLABS_API_KEY = 'sk_c03471a47b86a157c841708a0faa92f356c7668ae94e50b5'
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
 
 # Assumed ElevenLabs API endpoints (adjust if necessary)
 VOICE_CLONE_URL = "https://api.elevenlabs.io/v1/voices/add"
